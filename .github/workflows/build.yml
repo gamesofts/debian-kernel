@@ -47,6 +47,8 @@ jobs:
       if: ${{ env.versions.status }} == 'success'
       working-directory: /workdir
       run: |
+        sudo -E sed -i~orig -e 's/# deb-src/deb-src/' /etc/apt/sources.list   
+        sudo -E apt-get -qq update
         sudo apt-get -qq install -y rpm2cpio 
         elrepo_c7_ver=$(curl -s 'https://elrepo.org/linux/kernel/el7/x86_64/RPMS/?C=N;O=D' | grep -oP 'kernel-ml-headers[^"]+' | head -n 1 | awk -F '-' '{print $4}')
         sudo wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm
