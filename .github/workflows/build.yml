@@ -58,13 +58,15 @@ jobs:
         cd /workdir/boot
         config=/workdir/boot/.config
         sudo mv config-*-1.el7.elrepo.x86_64 .config
+        
+        sudo sed -ri 's/.*CONFIG_TCP_CONG_CUBIC.*/CONFIG_TCP_CONG_CUBIC=m/' ${config}
         sudo sed -ri 's/.*CONFIG_TCP_CONG_BBR.*/CONFIG_TCP_CONG_BBR=y/' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_BBR.*/i\CONFIG_DEFAULT_BBR=y' ${config}
+        sudo sed -ri 's/.*CONFIG_DEFAULT_CUBIC.*/CONFIG_DEFAULT_BBR=y/' ${config}
         sudo sed -ri 's/.*CONFIG_DEFAULT_TCP_CONG.*/CONFIG_DEFAULT_TCP_CONG="bbr"/' ${config}
-        sudo sed -ri 's/.*CONFIG_NET_SCH_FQ.*/CONFIG_NET_SCH_FQ=m/' ${config}
+        sudo sed -ri 's/.*CONFIG_NET_SCH_FQ.*/CONFIG_NET_SCH_FQ=y/' ${config}
         sudo sed -ri 's/.*CONFIG_NET_SCH_DEFAULT.*/CONFIG_NET_SCH_DEFAULT=y/' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_FQ.*/i\CONFIG_DEFAULT_FQ=y' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_NET_SCH.*/i\CONFIG_DEFAULT_NET_SCH="fq"' ${config}
+        sudo sed -ri '/CONFIG_NET_SCH_DEFAULT=y/a CONFIG_DEFAULT_FQ=y' ${config}
+        sudo sed -ri '/CONFIG_DEFAULT_FQ=y/a CONFIG_DEFAULT_NET_SCH="fq"' ${config}
         sudo sed -ri '/CONFIG_XEN_BLKDEV_FRONTEND/s/=.+/=y/g' ${config}
         sudo sed -ri '/CONFIG_XEN_NETDEV_FRONTEND/s/=.+/=y/g' ${config}
         sudo sed -ri '/CONFIG_VIRTIO_BLK/s/=.+/=y/g' ${config}
