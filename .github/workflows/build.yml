@@ -53,13 +53,11 @@ jobs:
         elrepo_c7_ver=$(curl -s 'https://elrepo.org/linux/kernel/el7/x86_64/RPMS/?C=N;O=D' | grep -oP 'kernel-ml-headers[^"]+' | head -n 1 | awk -F '-' '{print $4}')
         sudo wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm
         sudo rpm2cpio kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm | cpio -divm
-        cd /workdir/boot
-        config=/home/runner/work/kernel/kernel/config_elrepo
         echo "elrepo_config_version=$elrepo_c7_ver"
-        echo "kernel.config=$config" >> $GITHUB_ENV
-
-        sudo rm -rf $config
-        sudo mv config-*-1.el7.elrepo.x86_64 $config
+        
+        cd /workdir/boot
+        config=/workdir/boot/.config
+        sudo mv config-*-1.el7.elrepo.x86_64 .config
         sudo sed -ri 's/.*CONFIG_TCP_CONG_CUBIC.*/CONFIG_TCP_CONG_CUBIC=m/' ${config}
         sudo sed -ri 's/.*CONFIG_TCP_CONG_BBR.*/CONFIG_TCP_CONG_BBR=y/' ${config}
         sudo sed -ri '/.*CONFIG_DEFAULT_CUBIC.*/i\CONFIG_TCP_CONG_BBR2=m' ${config}
@@ -114,7 +112,7 @@ jobs:
       run: |
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         cd linux-$kernel_ver
-        mv ${{ env.kernel.config }} .config
+        mv /workdir/boot/.config .config
         sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS/s/=.+/=""/g' .config
         scripts/config --disable MODULE_SIG
         scripts/config --disable DEBUG_INFO
