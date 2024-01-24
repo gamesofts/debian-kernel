@@ -42,6 +42,58 @@ jobs:
         fi
         echo ${{ env.versions.status }}
 
+    - name: Update config
+      id: update
+      if: ${{ env.versions.status }} == 'success'
+      working-directory: /workdir
+      run: |
+        sudo apt-get -qq install -y rpm2cpio 
+        elrepo_c7_ver=$(curl -s 'https://elrepo.org/linux/kernel/el7/x86_64/RPMS/?C=N;O=D' | grep -oP 'kernel-ml-headers[^"]+' | head -n 1 | awk -F '-' '{print $4}')
+        sudo wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm
+        sudo rpm2cpio kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm | cpio -divm
+        cd /workdir/boot
+        config=/home/runner/work/kernel/kernel/config_elrepo
+        echo "elrepo_config_version=$elrepo_c7_ver"
+        echo "kernel.config=$config" >> $GITHUB_ENV
+
+        sudo rm -rf $config
+        sudo mv config-*-1.el7.elrepo.x86_64 $config
+        sudo sed -ri 's/.*CONFIG_TCP_CONG_CUBIC.*/CONFIG_TCP_CONG_CUBIC=m/' ${config}
+        sudo sed -ri 's/.*CONFIG_TCP_CONG_BBR.*/CONFIG_TCP_CONG_BBR=y/' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_CUBIC.*/i\CONFIG_TCP_CONG_BBR2=m' ${config}
+        sudo sed -ri '/CONFIG_TCP_CONG_BBR2=m/a CONFIG_TCP_CONG_BBR3=m' ${config}
+        sudo sed -ri 's/.*CONFIG_DEFAULT_TCP_CONG.*/CONFIG_DEFAULT_TCP_CONG="bbr"/' ${config}
+        sudo sed -ri 's/.*CONFIG_NET_SCH_PIE.*/CONFIG_NET_SCH_PIE=y/' ${config}
+        sudo sed -ri 's/.*CONFIG_NET_SCH_FQ_PIE.*/CONFIG_NET_SCH_FQ_PIE=y/' ${config}
+        sudo sed -ri 's/.*CONFIG_NET_SCH_DEFAULT.*/CONFIG_NET_SCH_DEFAULT=y/' ${config}
+        sudo sed -ri '/.*CONFIG_NET_SCH_FQ_PIE.*/i\CONFIG_DEFAULT_FQ_PIE=y' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_FQ_PIE.*/i\CONFIG_DEFAULT_NET_SCH="fq_pie"' ${config}
+        sudo sed -ri '/CONFIG_XEN_BLKDEV_FRONTEND/s/=.+/=y/g' ${config}
+        sudo sed -ri '/CONFIG_XEN_NETDEV_FRONTEND/s/=.+/=y/g' ${config}
+        sudo sed -ri '/CONFIG_VIRTIO_BLK/s/=.+/=y/g' ${config}
+        sudo sed -ri '/CONFIG_VIRTIO_NET/s/=.+/=y/g' ${config}
+        sudo sed -ri '/CONFIG_TLS/s/=.+/=y/g' ${config}
+        sudo sed -ri '/CONFIG_TLS_DEVICE/s/=.+/=y/g' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_RENO.*/d' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_CUBIC.*/d' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_FQ.*/d' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_CODEL.*/d' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_FQ_CODEL.*/d' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_SFQ.*/d' ${config}
+        sudo sed -ri '/.*CONFIG_DEFAULT_PFIFO_FAST.*/d' ${config}
+        sudo sed -ri '/CONFIG_HAVE_ARCH_KCSAN*/c\# CONFIG_HAVE_ARCH_KCSAN is not set' ${config}
+        sudo sed -ri '/CONFIG_DEBUG_INFO_NONE*/c\# CONFIG_DEBUG_INFO_NONE is not set' ${config}
+        sudo sed -ri '/CONFIG_MODULE_SIG=y/c\# CONFIG_MODULE_SIG is not set' ${config}
+        sudo sed -ri '/CONFIG_MODULE_SIG_ALL*/c\# CONFIG_MODULE_SIG_ALL is not set' ${config}
+        sudo sed -ri '/CONFIG_DEBUG_INFO=*/c\# CONFIG_DEBUG_INFO is not set' ${config}
+        sudo sed -ri '/CONFIG_DEBUG_INFO_NONE*/c\# CONFIG_DEBUG_INFO_NONE is not set' ${config}
+        sudo sed -ri '/CONFIG_DEBUG_INFO_DWARF4*/c\# CONFIG_DEBUG_INFO_DWARF4 is not set' ${config}
+        sudo sed -ri '/CONFIG_DEBUG_INFO_BTF*/c\# CONFIG_DEBUG_INFO_BTF is not set' ${config}
+        sudo sed -ri '/CONFIG_DEBUG_INFO_DWARF5*/c\# CONFIG_DEBUG_INFO_DWARF5 is not set' ${config}
+        sudo sed -ri '/CONFIG_MODULE_SIG_KEY_TYPE_RSA*/c\# CONFIG_MODULE_SIG_KEY_TYPE_RSA is not set' ${config}
+        sudo sed -ri '/CONFIG_MODULE_SIG_KEY=*/c\CONFIG_MODULE_SIG_KEY=""' ${config}
+        sudo sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS=*/c\CONFIG_SYSTEM_TRUSTED_KEYS=""' ${config}
+
     - name: Get Source Code
       if: ${{ env.versions.status }} == 'success'
       working-directory: /workdir
@@ -60,7 +112,7 @@ jobs:
       run: |
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         cd linux-$kernel_ver
-        wget -O .config https://raw.githubusercontent.com/gamesofts/debian-kernel/main/config
+        mv ${{ env.kernel.config }} .config
         sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS/s/=.+/=""/g' .config
         scripts/config --disable MODULE_SIG
         scripts/config --disable DEBUG_INFO
