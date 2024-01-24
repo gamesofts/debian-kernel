@@ -14,7 +14,6 @@ on:
 env:
   UPLOAD_DIR: true
   UPLOAD_RELEASE: true
-  UPLOAD_WETRANSFER: false
   TZ: Asia/Shanghai
 
 jobs:
@@ -84,15 +83,6 @@ jobs:
       with:
         name: ${{ env.FILE_DATE }}
         path: /workdir/upload
-
-    - name: Upload to WeTransfer
-      if: ${{ env.compile.status }} == 'success' && ${{ env.UPLOAD_WETRANSFER }} == 'true' && !cancelled()
-      run: |
-        curl -fsSL git.io/file-transfer | sh
-        ./transfer wet -s -p 16 --no-progress /workdir/upload 2>&1 | tee wetransfer.log
-        echo "::warning file=wetransfer.com::$(grep https wetransfer.log)"
-        echo "action_echo=enabled" >> $GITHUB_ENV
-        echo "url=$(grep https wetransfer.log | cut -f3 -d' ')" >> $GITHUB_ENV
 
     - name: Generate release tag
       id: tag
