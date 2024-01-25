@@ -102,7 +102,7 @@ jobs:
         echo "code_status=success" >> $GITHUB_ENV
 
     - name: Compile Kernel
-      if: ${{ env.versions_status == 'success' }} && ${{ env.code_status == 'success' }} 
+      if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
       working-directory: /workdir
       run: |
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
@@ -125,13 +125,13 @@ jobs:
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@main
-      if: ${{ env.compile_status == 'success' }} && ${{ env.UPLOAD_DIR  == 'true' }}
+      if: ${{ env.compile_status == 'success' && env.UPLOAD_DIR == 'true' }}
       with:
         name: ${{ env.FILE_DATE }}
         path: /workdir/upload
 
     - name: Generate release tag
-      if: ${{ env.UPLOAD_RELEASE == 'true' }} && ${{ env.compile_status  == 'success' }} && !cancelled()
+      if: ${{ env.UPLOAD_RELEASE == 'true' && env.compile_status == 'success' && !cancelled() }} 
       run: |
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         echo "release_tag=Debian_Kernel_${kernel_ver}_latest_bbr_$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
@@ -140,7 +140,7 @@ jobs:
 
     - name: Upload Kernel to release
       uses: softprops/action-gh-release@v1
-      if: ${{ env.tag_status == 'success' }} && !cancelled()
+      if: ${{ env.tag_status == 'success' && !cancelled() }} 
       env:
         GITHUB_TOKEN: ${{ secrets.TOKEN }}
       with:
@@ -150,7 +150,7 @@ jobs:
 
     - name: Delete workflow runs
       uses: GitRML/delete-workflow-runs@main
-      if: ${{ env.tag_status == 'success' }} && !cancelled()
+      if: ${{ env.tag_status == 'success' && !cancelled() }}
       with:
         token: ${{ secrets.TOKEN }}
         repository: ${{ github.repository }}
