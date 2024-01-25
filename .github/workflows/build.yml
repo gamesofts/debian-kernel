@@ -34,7 +34,7 @@ jobs:
         echo "kernel_ver=$kernel_ver"
 
     - name: Check Kernel Version
-      if: ${{ env.github_ver }} != ${{ env.kernel_ver }}
+      if: ${{ env.github_ver != env.kernel_ver }}
       run: |
         echo "versions_status=success" >> $GITHUB_ENV
         echo "versions_status=success"
