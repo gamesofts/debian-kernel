@@ -28,16 +28,14 @@ jobs:
         github_tag=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep 'Debian_Kernel' | grep '_latest_bbr_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}')
         github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep ${github_tag}  | grep 'deb' | grep 'headers' | awk -F '"' '{print $4}' | awk -F '[/]' '{print $9}' | awk -F '[-]' '{print $3}' | awk -F '[_]' '{print $1}')
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
-        echo "github_ver=$github_ver" >> $GITHUB_ENV
-        echo "kernel_ver=$kernel_ver" >> $GITHUB_ENV
         echo "github_ver=$github_ver"
         echo "kernel_ver=$kernel_ver"
-
-    - name: Check Kernel Version
-      if: ${{ env.github_ver != env.kernel_ver }}
-      run: |
-        echo "versions_status=success" >> $GITHUB_ENV
-        echo "versions_status=success"
+        if [[ ${{ github_ver }} == *${kernel_ver}* ]]; then
+          echo "versions_status=fail" >> $GITHUB_ENV
+        else
+          echo "versions_status=success" >> $GITHUB_ENV
+        fi
+        echo "versions_status=${{ env.versions_status }}"
 
     - name: Update config
       id: update
