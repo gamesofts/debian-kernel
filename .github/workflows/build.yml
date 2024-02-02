@@ -143,8 +143,6 @@ jobs:
     - name: Upload Kernel to release
       uses: softprops/action-gh-release@v1
       if: ${{ env.tag_status == 'success' && !cancelled() }} 
-      env:
-        GITHUB_TOKEN: ${{ secrets.TOKEN }}
       with:
         tag_name: ${{ env.release_tag }}
         body_path: release.txt
@@ -154,7 +152,5 @@ jobs:
       uses: GitRML/delete-workflow-runs@main
       if: ${{ env.tag_status == 'success' && !cancelled() }}
       with:
-        token: ${{ secrets.TOKEN }}
-        repository: ${{ github.repository }}
         retain_days: 1
-        keep_minimum_runs: 2
+        keep_minimum_runs: 3
