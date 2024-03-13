@@ -48,9 +48,9 @@ jobs:
         sudo -E apt-get -qq update
         sudo apt-get -qq install -y rpm2cpio 
         elrepo_c7_ver=$(curl -s 'https://elrepo.org/linux/kernel/el7/x86_64/RPMS/?C=N;O=D' | grep -oP 'kernel-ml-headers[^"]+' | head -n 1 | awk -F '-' '{print $4}')
+        echo "elrepo_config_version=$elrepo_c7_ver"
         sudo wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm
         sudo rpm2cpio kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm | cpio -divm
-        echo "elrepo_config_version=$elrepo_c7_ver"
         
         cd /workdir/boot
         config=/workdir/boot/.config
