@@ -27,7 +27,7 @@ jobs:
     - name: Get Kernel Versions
       run: |
         github_tag=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep 'Debian_Kernel' | grep '_latest_bbr_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}')
-        github_ver=$github_tag | awk -F '[_]' '{print $3}'
+        github_ver=$("$github_tag" | awk -F '[_]' '{print $3}')
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         echo "github_ver=$github_ver"
         echo "kernel_ver=$kernel_ver"
