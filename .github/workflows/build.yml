@@ -47,14 +47,14 @@ jobs:
         sudo -E sed -i~orig -e 's/# deb-src/deb-src/' /etc/apt/sources.list   
         sudo -E apt-get -qq update
         sudo apt-get -qq install -y rpm2cpio 
-        elrepo_c7_ver=$(curl -s 'https://elrepo.org/linux/kernel/el7/x86_64/RPMS/?C=N;O=D' | grep -oP 'kernel-ml-headers[^"]+' | head -n 1 | awk -F '-' '{print $4}')
-        echo "elrepo_config_version=$elrepo_c7_ver"
-        sudo wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm
-        sudo rpm2cpio kernel-ml-$elrepo_c7_ver-1.el7.elrepo.x86_64.rpm | cpio -divm
+        elrepo_c9_ver=$(curl -s 'https://elrepo.org/linux/kernel/el9/x86_64/RPMS/?C=N;O=D' | grep -oP 'kernel-ml-headers[^"]+' | head -n 1 | awk -F '-' '{print $4}')
+        echo "elrepo_config_version=$elrepo_c9_ver"
+        sudo wget https://elrepo.org/linux/kernel/el9/x86_64/RPMS/kernel-ml-$elrepo_c9_ver-1.el9.elrepo.x86_64.rpm
+        sudo rpm2cpio kernel-ml-$elrepo_c9_ver-1.el9.elrepo.x86_64.rpm | cpio -divm
         
         cd /workdir/boot
         config=/workdir/boot/.config
-        sudo mv config-*-1.el7.elrepo.x86_64 .config
+        sudo mv config-*-1.el9.elrepo.x86_64 .config
         
         sudo sed -ri 's/.*CONFIG_TCP_CONG_CUBIC.*/CONFIG_TCP_CONG_CUBIC=m/' ${config}
         sudo sed -ri 's/.*CONFIG_TCP_CONG_BBR.*/CONFIG_TCP_CONG_BBR=y/' ${config}
