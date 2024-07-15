@@ -52,8 +52,8 @@ jobs:
         sudo wget https://elrepo.org/linux/kernel/el8/x86_64/RPMS/kernel-ml-core-$elrepo_c8_ver-1.el8.elrepo.x86_64.rpm
         sudo rpm2cpio kernel-ml-core-$elrepo_c8_ver-1.el8.elrepo.x86_64.rpm | cpio -divm
         
-        config=/workdir/kernel-ml-core/.config
-        mv /workdir/kernel-ml-core/lib/modules/$elrepo_c8_ver-1.el8.elrepo.x86_64/config ${config}
+        config=/workdir/lib/modules/.config
+        mv /workdir/lib/modules/$elrepo_c8_ver-1.el8.elrepo.x86_64/config ${config}
         
         sudo sed -ri 's/.*CONFIG_TCP_CONG_CUBIC.*/CONFIG_TCP_CONG_CUBIC=m/' ${config}
         sudo sed -ri 's/.*CONFIG_TCP_CONG_BBR.*/CONFIG_TCP_CONG_BBR=y/' ${config}
@@ -107,7 +107,7 @@ jobs:
       run: |
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         cd linux-$kernel_ver
-        mv /workdir/kernel-ml-core/.config .config
+        mv /workdir/lib/modules/.config .config
         sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS/s/=.+/=""/g' .config
         scripts/config --disable MODULE_SIG
         scripts/config --disable DEBUG_INFO
