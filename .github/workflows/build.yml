@@ -52,7 +52,9 @@ jobs:
         sudo wget https://elrepo.org/linux/kernel/el8/x86_64/RPMS/kernel-ml-core-$elrepo_c8_ver-1.el8.elrepo.x86_64.rpm
         sudo rpm2cpio kernel-ml-core-$elrepo_c8_ver-1.el8.elrepo.x86_64.rpm | cpio -divm
         
-        config=/workdir/kernel-ml-core/lib/modules/$elrepo_c8_ver-1.el8.elrepo.x86_64/config
+        config=/workdir/kernel-ml-core/.config
+        mv /workdir/kernel-ml-core/lib/modules/$elrepo_c8_ver-1.el8.elrepo.x86_64/config ${config}
+        
         sudo sed -ri 's/.*CONFIG_TCP_CONG_CUBIC.*/CONFIG_TCP_CONG_CUBIC=m/' ${config}
         sudo sed -ri 's/.*CONFIG_TCP_CONG_BBR.*/CONFIG_TCP_CONG_BBR=y/' ${config}
         sudo sed -ri 's/.*CONFIG_DEFAULT_CUBIC.*/CONFIG_DEFAULT_BBR=y/' ${config}
@@ -87,7 +89,6 @@ jobs:
         sudo sed -ri '/CONFIG_MODULE_SIG_KEY_TYPE_RSA*/c\# CONFIG_MODULE_SIG_KEY_TYPE_RSA is not set' ${config}
         sudo sed -ri '/CONFIG_MODULE_SIG_KEY=*/c\CONFIG_MODULE_SIG_KEY=""' ${config}
         sudo sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS=*/c\CONFIG_SYSTEM_TRUSTED_KEYS=""' ${config}
-        mv ${config} /workdir/kernel-ml-core/.config
 
     - name: Get Source Code
       if: ${{ env.versions_status == 'success' }}
