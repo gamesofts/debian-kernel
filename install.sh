@@ -2,7 +2,7 @@ apt-get --fix-broken install -y && apt-get autoremove -y
 rm -rf bbr
 mkdir bbr && cd bbr
 
-github_tag=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep 'Debian_Kernel' | grep '_latest_bbr_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}')
+github_tag=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep 'Debian_Kernel' | grep '_bbrv3_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}')
 github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep ${github_tag} | grep 'deb' | grep 'headers' | awk -F '"' '{print $4}' | awk -F '[/]' '{print $9}' | awk -F '[-]' '{print $3}' | awk -F '[_]' '{print $1}')
 
 if [[ -z $github_ver ]]; then
