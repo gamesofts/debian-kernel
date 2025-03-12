@@ -20,11 +20,8 @@ jobs:
       shell: bash
       id: versions
       run: |
-        # 获取 GitHub 最新 release 版本
         github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases/latest' | grep 'Debian_Kernel' | grep '_latest_bbr_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}' | awk -F '[_]' '{print $3}')
-        
-        # 获取 Kernel.org 最新稳定版
-        kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}'
+        kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         major_ver=$(cut -d. -f1 <<< "$kernel_ver")
         
         echo "github_ver=$github_ver"
