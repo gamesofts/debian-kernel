@@ -17,6 +17,7 @@ jobs:
 
     steps:
     - name: Get Kernel Versions
+      shell: bash
       id: versions
       run: |
         # 获取 GitHub 最新 release 版本
@@ -34,7 +35,8 @@ jobs:
         echo "major_ver=$major_ver" >> $GITHUB_ENV
         [ "$github_ver" != "$kernel_ver" ] && echo "versions_status=success" >> $GITHUB_ENV
 
-    - name: Get config
+    - name: Get Compile Config
+      shell: bash
       if: ${{ env.versions_status == 'success' }}
       working-directory: /workdir
       run: |
@@ -52,6 +54,7 @@ jobs:
         rm -rf data.tar.xz linux-image.deb
 
     - name: Get Source Code
+      shell: bash
       if: ${{ env.versions_status == 'success' }}
       working-directory: /workdir
       run: |
@@ -63,6 +66,7 @@ jobs:
         echo "code_status=success" >> $GITHUB_ENV
 
     - name: Compile Kernel
+      shell: bash
       if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
       working-directory: /workdir/linux-${{ env.kernel_ver }}
       run: |
