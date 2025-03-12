@@ -1,8 +1,8 @@
 name: Debian Kernel Latest
 
 on:
-  # schedule:
-  #   - cron: "0 0 * * *"
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 env:
@@ -20,7 +20,7 @@ jobs:
       shell: bash
       id: versions
       run: |
-        github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases/latest' | grep 'Debian_Kernel' | grep '_latest_bbr_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}' | awk -F '[_]' '{print $3}')
+        github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases/latest' | grep 'Debian_Kernel' | grep '_bbrv3_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}' | awk -F '[_]' '{print $3}')
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         major_ver=$(cut -d. -f1-2 <<< "$kernel_ver")
         
@@ -96,6 +96,14 @@ jobs:
       working-directory: /workdir/linux-${{ env.kernel_ver }}
       run: |
         cp /workdir/lib/modules/.config .config
+        scripts/config --disable MODULE_SIG
+        scripts/config --disable DEBUG_INFO
+        scripts/config --disable DEBUG_INFO_BTF
+        scripts/config --disable DEBUG_INFO_DWARF4
+        scripts/config --disable DEBUG_INFO_DWARF5
+        scripts/config --disable DEBUG_INFO_NONE
+        scripts/config --disable SYSTEM_TRUSTED_KEYS
+        scripts/config --disable SYSTEM_REVOCATION_KEYS
         echo -e "$(nproc) thread compile"
         sudo time make -j$(nproc) bindeb-pkg
         mv ../*.deb /workdir/upload
@@ -112,7 +120,7 @@ jobs:
     - name: Generate release tag
       if: ${{ env.UPLOAD_RELEASE == 'true' && env.compile_status == 'success' }}
       run: |
-        echo "release_tag=Debian_Kernel_${kernel_ver}_latest_bbr_$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
+        echo "release_tag=Debian_Kernel_${kernel_ver}_bbrv3_$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
         touch release.txt
         echo "tag_status=success" >> $GITHUB_ENV
 
