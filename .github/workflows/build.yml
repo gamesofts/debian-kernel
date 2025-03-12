@@ -1,11 +1,3 @@
-#
-# This is free software, licensed under the MIT License.
-# See /LICENSE for more information.
-#
-# Description: Build Kernel using GitHub Actions
-# Change from P3TERX
-#
-
 name: Debian Kernel Latest
 
 on:
@@ -25,103 +17,63 @@ jobs:
 
     steps:
     - name: Get Kernel Versions
+      id: versions
       run: |
-        github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases/latest' | grep 'Debian_Kernel' | grep '_latest_bbr_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}' | awk -F '[_]' '{print $3}')
-        kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
+        # 获取 GitHub 最新 release 版本
+        github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases/latest' | 
+          grep -oP 'Debian_Kernel_\K\d+\.\d+\.\d+(?=_latest_bbr)')
+        
+        # 获取 Kernel.org 最新稳定版
+        kernel_page=$(curl -s https://www.kernel.org/)
+        kernel_ver=$(grep -m1 -oP 'stable.*?>\K\d+\.\d+\.\d+' <<< "$kernel_page")
+        major_ver=$(cut -d. -f1 <<< "$kernel_ver")
+        
         echo "github_ver=$github_ver"
         echo "kernel_ver=$kernel_ver"
+        echo "major_ver=$major_ver"
         echo "github_ver=$github_ver" >> $GITHUB_ENV
         echo "kernel_ver=$kernel_ver" >> $GITHUB_ENV
-        echo "versions_status=fail" >> $GITHUB_ENV
+        echo "major_ver=$major_ver" >> $GITHUB_ENV
+        [ "$github_ver" != "$kernel_ver" ] && echo "versions_status=success" >> $GITHUB_ENV
 
-    - name: Check Kernel Versions
-      if: ${{ env.github_ver != env.kernel_ver }} 
-      run: |
-        echo "versions_status=success"
-        echo "versions_status=success" >> $GITHUB_ENV
-      
-    - name: Update config
-      if: ${{ env.versions_status  == 'success' }}
+    - name: Get config
+      if: ${{ env.versions_status == 'success' }}
       working-directory: /workdir
       run: |
-        sudo -E sed -i~orig -e 's/# deb-src/deb-src/' /etc/apt/sources.list   
-        sudo -E apt-get -qq update
-        sudo apt-get -qq install -y rpm2cpio 
-        elrepo_c8_ver=$(curl -s 'https://elrepo.org/linux/kernel/el8/x86_64/RPMS/?C=N;O=D' | grep -oP 'kernel-ml-headers[^"]+' | head -n 1 | awk -F '-' '{print $4}')
-        echo "elrepo_config_version=$elrepo_c8_ver"
-        sudo wget https://elrepo.org/linux/kernel/el8/x86_64/RPMS/kernel-ml-core-$elrepo_c8_ver-1.el8.elrepo.x86_64.rpm
-        sudo rpm2cpio kernel-ml-core-$elrepo_c8_ver-1.el8.elrepo.x86_64.rpm | cpio -divm
+        # 下载并解压 Debian 官方内核包
+        deb_url="https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${kernel_ver}-cloud-amd64_${kernel_ver}-1_amd64.deb"
+        wget -O linux-image.deb "$deb_url"
         
-        config=/workdir/lib/modules/.config
-        mv /workdir/lib/modules/$elrepo_c8_ver-1.el8.elrepo.x86_64/config ${config}
+        # 提取配置文件
+        ar x linux-image.deb data.tar.xz
+        tar -xf data.tar.xz --wildcards '*/config-*' --strip-components=2
+        mkdir -p /workdir/lib/modules
+        mv config-${kernel_ver}-cloud-amd64 /workdir/lib/modules/.config
         
-        sudo sed -ri 's/.*CONFIG_TCP_CONG_CUBIC.*/CONFIG_TCP_CONG_CUBIC=m/' ${config}
-        sudo sed -ri 's/.*CONFIG_TCP_CONG_BBR.*/CONFIG_TCP_CONG_BBR=y/' ${config}
-        sudo sed -ri 's/.*CONFIG_DEFAULT_CUBIC.*/CONFIG_DEFAULT_BBR=y/' ${config}
-        sudo sed -ri 's/.*CONFIG_DEFAULT_TCP_CONG.*/CONFIG_DEFAULT_TCP_CONG="bbr"/' ${config}
-        sudo sed -ri 's/.*CONFIG_NET_SCH_FQ.*/CONFIG_NET_SCH_FQ=y/' ${config}
-        sudo sed -ri 's/.*CONFIG_NET_SCH_DEFAULT.*/CONFIG_NET_SCH_DEFAULT=y/' ${config}
-        sudo sed -ri '/CONFIG_NET_SCH_DEFAULT=y/a CONFIG_DEFAULT_FQ=y' ${config}
-        sudo sed -ri '/CONFIG_DEFAULT_FQ=y/a CONFIG_DEFAULT_NET_SCH="fq"' ${config}
-        sudo sed -ri '/CONFIG_XEN_BLKDEV_FRONTEND/s/=.+/=y/g' ${config}
-        sudo sed -ri '/CONFIG_XEN_NETDEV_FRONTEND/s/=.+/=y/g' ${config}
-        sudo sed -ri '/CONFIG_VIRTIO_BLK/s/=.+/=y/g' ${config}
-        sudo sed -ri '/CONFIG_VIRTIO_NET/s/=.+/=y/g' ${config}
-        sudo sed -ri '/CONFIG_TLS/s/=.+/=y/g' ${config}
-        sudo sed -ri '/CONFIG_TLS_DEVICE/s/=.+/=y/g' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_RENO.*/d' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_CUBIC.*/d' ${config}
-        sudo sed -ri '/.*CONFIG_NET_SCH_PIE.*/d' ${config}
-        sudo sed -ri '/.*CONFIG_NET_SCH_FQ_PIE.*/d' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_CODEL.*/d' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_FQ_CODEL.*/d' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_SFQ.*/d' ${config}
-        sudo sed -ri '/.*CONFIG_DEFAULT_PFIFO_FAST.*/d' ${config}
-        sudo sed -ri '/CONFIG_HAVE_ARCH_KCSAN*/c\# CONFIG_HAVE_ARCH_KCSAN is not set' ${config}
-        sudo sed -ri '/CONFIG_DEBUG_INFO_NONE*/c\# CONFIG_DEBUG_INFO_NONE is not set' ${config}
-        sudo sed -ri '/CONFIG_MODULE_SIG=y/c\# CONFIG_MODULE_SIG is not set' ${config}
-        sudo sed -ri '/CONFIG_MODULE_SIG_ALL*/c\# CONFIG_MODULE_SIG_ALL is not set' ${config}
-        sudo sed -ri '/CONFIG_DEBUG_INFO=*/c\# CONFIG_DEBUG_INFO is not set' ${config}
-        sudo sed -ri '/CONFIG_DEBUG_INFO_NONE*/c\# CONFIG_DEBUG_INFO_NONE is not set' ${config}
-        sudo sed -ri '/CONFIG_DEBUG_INFO_DWARF4*/c\# CONFIG_DEBUG_INFO_DWARF4 is not set' ${config}
-        sudo sed -ri '/CONFIG_DEBUG_INFO_BTF*/c\# CONFIG_DEBUG_INFO_BTF is not set' ${config}
-        sudo sed -ri '/CONFIG_DEBUG_INFO_DWARF5*/c\# CONFIG_DEBUG_INFO_DWARF5 is not set' ${config}
-        sudo sed -ri '/CONFIG_MODULE_SIG_KEY_TYPE_RSA*/c\# CONFIG_MODULE_SIG_KEY_TYPE_RSA is not set' ${config}
-        sudo sed -ri '/CONFIG_MODULE_SIG_KEY=*/c\CONFIG_MODULE_SIG_KEY=""' ${config}
-        sudo sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS=*/c\CONFIG_SYSTEM_TRUSTED_KEYS=""' ${config}
+        # 清理临时文件
+        rm -rf data.tar.xz linux-image.deb
 
     - name: Get Source Code
       if: ${{ env.versions_status == 'success' }}
       working-directory: /workdir
       run: |
         df -hT $PWD
-        kernel_file=$(curl -s https://www.kernel.org/ | grep 'alt="Download"' | awk -F '"' '{print $2}')
-        kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
-        wget -O kernel.tar.xz $kernel_file
-        tar -Jxvf kernel.tar.xz -C /workdir && cd /workdir/linux-$kernel_ver
+        # 使用预生成的下载地址
+        kernel_url="https://cdn.kernel.org/pub/linux/kernel/v${major_ver}.x/linux-${kernel_ver}.tar.xz"
+        wget -O kernel.tar.xz "$kernel_url"
+        tar --strip-components=1 -Jxvf kernel.tar.xz -C /workdir/linux-${kernel_ver}
         echo "code_status=success" >> $GITHUB_ENV
 
     - name: Compile Kernel
       if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
-      working-directory: /workdir
+      working-directory: /workdir/linux-${{ env.kernel_ver }}
       run: |
-        kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
-        cd linux-$kernel_ver
-        mv /workdir/lib/modules/.config .config
-        sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS/s/=.+/=""/g' .config
-        scripts/config --disable MODULE_SIG
-        scripts/config --disable DEBUG_INFO
-        scripts/config --disable DEBUG_INFO_BTF
-        scripts/config --disable DEBUG_INFO_DWARF4
-        scripts/config --disable DEBUG_INFO_DWARF5
-        scripts/config --disable DEBUG_INFO_NONE
-        scripts/config --disable SYSTEM_TRUSTED_KEYS
-        scripts/config --disable SYSTEM_REVOCATION_KEYS
+        cp /workdir/lib/modules/.config .config
         echo -e "$(nproc) thread compile"
         sudo time make -j$(nproc) bindeb-pkg
-        cd /workdir && mv *.deb /workdir/upload
+        mv ../*.deb /workdir/upload
         echo "compile_status=success" >> $GITHUB_ENV
-        echo "FILE_DATE=Kernel_Debian_$kernel_ver_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+        echo "FILE_DATE=Kernel_Debian_${kernel_ver}_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@main
@@ -131,16 +83,15 @@ jobs:
         path: /workdir/upload
 
     - name: Generate release tag
-      if: ${{ env.UPLOAD_RELEASE == 'true' && env.compile_status == 'success' && !cancelled() }} 
+      if: ${{ env.UPLOAD_RELEASE == 'true' && env.compile_status == 'success' }}
       run: |
-        kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         echo "release_tag=Debian_Kernel_${kernel_ver}_latest_bbr_$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
         touch release.txt
         echo "tag_status=success" >> $GITHUB_ENV
 
     - name: Upload Kernel to release
       uses: softprops/action-gh-release@v1
-      if: ${{ env.tag_status == 'success' && !cancelled() }} 
+      if: ${{ env.tag_status == 'success' }}
       with:
         tag_name: ${{ env.release_tag }}
         body_path: release.txt
@@ -148,7 +99,7 @@ jobs:
 
     - name: Delete workflow runs
       uses: GitRML/delete-workflow-runs@main
-      if: ${{ env.tag_status == 'success' && !cancelled() }}
+      if: ${{ env.tag_status == 'success' }}
       with:
         retain_days: 1
         keep_minimum_runs: 3
