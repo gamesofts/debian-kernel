@@ -42,14 +42,11 @@ jobs:
       if: ${{ env.versions_status == 'success' }}
       working-directory: /workdir
       run: |
-        # 下载并解压 Debian 官方内核包
         deb_urls=(
           "https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${kernel_ver}-cloud-amd64_${kernel_ver}-1_amd64.deb"
           "https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${major_ver}-cloud-amd64_${kernel_ver}-1~exp1_amd64.deb"
           "https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${major_ver}-cloud-amd64_${kernel_ver}-1_amd64.deb"
         )
-
-        # 尝试多个下载源
         for url in "${deb_urls[@]}"; do
           echo "Trying: $url"
           if wget --no-check-certificate -q --spider "$url"; then
@@ -58,29 +55,19 @@ jobs:
             echo "Not found: $url"
           fi
         done
-
-        # 检查下载结果
         if [ ! -f linux-image.deb ]; then
           echo "::error::All deb package download attempts failed"
           exit 1
         fi
-
-        # 解压并智能查找配置文件
         ar x linux-image.deb data.tar.xz
         tar -xf data.tar.xz --wildcards '*/config-*' --strip-components=2
-        
-        # 查找配置文件
         found_config=$(find . -maxdepth 1 -name "config-*-cloud-amd64" -print -quit)
         mkdir -p /workdir/lib/modules
         mv "$found_config" /workdir/lib/modules/.config
-    
-        # 验证配置文件存在
         if [ ! -f /workdir/lib/modules/.config ]; then
           echo "::error::Config file extraction failed. Searched patterns: ${config_patterns[*]}"
           exit 1
         fi
-        
-        # 清理临时文件
         rm -rf data.tar.xz linux-image.deb
 
     - name: Get Source Code
@@ -89,12 +76,20 @@ jobs:
       working-directory: /workdir
       run: |
         df -hT $PWD
-        # 使用预生成的下载地址
         kernel_url="https://cdn.kernel.org/pub/linux/kernel/v$(cut -d. -f1 <<< $kernel_ver).x/linux-${kernel_ver}.tar.xz"
         wget --no-check-certificate -O kernel.tar.xz "$kernel_url"
         tar -Jxvf kernel.tar.xz -C /workdir && cd /workdir/linux-$kernel_ver
         echo "code_status=success" >> $GITHUB_ENV
 
+    - name: Add Google BBRv3
+      shell: bash
+      working-directory: /workdir/linux-${{ env.kernel_ver }}
+      if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
+      run: |
+        git remote add google-bbr https://github.com/google/bbr.git
+        git fetch google-bbr
+        git checkout google-bbr/v3
+          
     - name: Compile Kernel
       shell: bash
       if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
