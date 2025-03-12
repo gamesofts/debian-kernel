@@ -86,6 +86,7 @@ jobs:
       working-directory: /workdir/linux-${{ env.kernel_ver }}
       if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
       run: |
+        git config --global --add safe.directory $PWD
         git remote add google-bbr https://github.com/google/bbr.git
         git fetch google-bbr
         git checkout google-bbr/v3
