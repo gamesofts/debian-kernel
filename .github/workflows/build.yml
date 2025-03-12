@@ -106,6 +106,11 @@ jobs:
         scripts/config --disable SYSTEM_TRUSTED_KEYS
         scripts/config --disable SYSTEM_REVOCATION_KEYS
 
+        IFS='.' read -r version patchlevel sublevel <<< "${{ env.kernel_ver }}"
+        sed -i "s/^VERSION = .*/VERSION = $version/" Makefile
+        sed -i "s/^PATCHLEVEL = .*/PATCHLEVEL = $patchlevel/" Makefile
+        sed -i "s/^SUBLEVEL = .*/SUBLEVEL = $sublevel/" Makefile
+
         echo -e "$(nproc) thread compile"
         make olddefconfig
         make bindeb-pkg -j $(nproc)
