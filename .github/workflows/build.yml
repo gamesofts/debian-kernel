@@ -65,11 +65,22 @@ jobs:
           exit 1
         fi
 
-        # 提取配置文件
+        # 解压并智能查找配置文件
         ar x linux-image.deb data.tar.xz
         tar -xf data.tar.xz --wildcards '*/config-*' --strip-components=2
+        
+        # 查找配置文件
+        found_config=$(find . -maxdepth 1 -name "config-*-cloud-amd64" -print -quit)
         mkdir -p /workdir/lib/modules
-        mv config-${kernel_ver}-cloud-amd64 /workdir/lib/modules/.config
+        mv "$found_config" /workdir/lib/modules/.config
+    
+        # 验证配置文件存在
+        if [ ! -f /workdir/lib/modules/.config ]; then
+          echo "::error::Config file extraction failed. Searched patterns: ${config_patterns[*]}"
+          echo "Available files:"
+          find . -name 'config-*'
+          exit 1
+        fi
         
         # 清理临时文件
         rm -rf data.tar.xz linux-image.deb
