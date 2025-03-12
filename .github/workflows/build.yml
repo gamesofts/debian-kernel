@@ -89,7 +89,7 @@ jobs:
         git init
         git remote add google-bbr https://github.com/google/bbr.git
         git fetch google-bbr
-        git checkout google-bbr/v3
+        git checkout -f google-bbr/v3
 
     - name: Compile Kernel
       shell: bash
