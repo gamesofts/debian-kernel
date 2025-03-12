@@ -33,7 +33,12 @@ jobs:
         echo "github_ver=$github_ver" >> $GITHUB_ENV
         echo "kernel_ver=$kernel_ver" >> $GITHUB_ENV
         echo "major_ver=$major_ver" >> $GITHUB_ENV
-        [ "$github_ver" != "$kernel_ver" ] && echo "versions_status=success" >> $GITHUB_ENV
+
+    - name: Check Kernel Versions
+      if: ${{ env.github_ver != env.kernel_ver }} 
+      run: |
+        echo "versions_status=success"
+        echo "versions_status=success" >> $GITHUB_ENV
 
     - name: Get Compile Config
       shell: bash
