@@ -77,8 +77,6 @@ jobs:
         # 验证配置文件存在
         if [ ! -f /workdir/lib/modules/.config ]; then
           echo "::error::Config file extraction failed. Searched patterns: ${config_patterns[*]}"
-          echo "Available files:"
-          find . -name 'config-*'
           exit 1
         fi
         
@@ -94,7 +92,7 @@ jobs:
         # 使用预生成的下载地址
         kernel_url="https://cdn.kernel.org/pub/linux/kernel/v$(cut -d. -f1 <<< $kernel_ver).x/linux-${kernel_ver}.tar.xz"
         wget --no-check-certificate -O kernel.tar.xz "$kernel_url"
-        tar --strip-components=1 -Jxvf kernel.tar.xz -C /workdir/linux-${kernel_ver}
+        tar -Jxvf kernel.tar.xz -C /workdir && cd /workdir/linux-$kernel_ver
         echo "code_status=success" >> $GITHUB_ENV
 
     - name: Compile Kernel
