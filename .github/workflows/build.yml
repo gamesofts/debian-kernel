@@ -44,7 +44,7 @@ jobs:
       run: |
         # 下载并解压 Debian 官方内核包
         deb_url="https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${kernel_ver}-cloud-amd64_${kernel_ver}-1_amd64.deb"
-        wget -O linux-image.deb "$deb_url"
+        wget --no-check-certificate -O linux-image.deb "$deb_url"
         
         # 提取配置文件
         ar x linux-image.deb data.tar.xz
@@ -63,7 +63,7 @@ jobs:
         df -hT $PWD
         # 使用预生成的下载地址
         kernel_url="https://cdn.kernel.org/pub/linux/kernel/v${major_ver}.x/linux-${kernel_ver}.tar.xz"
-        wget -O kernel.tar.xz "$kernel_url"
+        wget --no-check-certificate -O kernel.tar.xz "$kernel_url"
         tar --strip-components=1 -Jxvf kernel.tar.xz -C /workdir/linux-${kernel_ver}
         echo "code_status=success" >> $GITHUB_ENV
 
