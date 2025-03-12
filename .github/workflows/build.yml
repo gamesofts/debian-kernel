@@ -9,6 +9,7 @@ env:
   UPLOAD_DIR: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
 jobs:
   build:
@@ -82,11 +83,12 @@ jobs:
         echo "code_status=success" >> $GITHUB_ENV
         
     - name: Add Google BBRv3
-      uses: actions/checkout@v4
-      with:
-        repository: google/bbr
-        ref: v3
-        path: /workdir/linux-${{ env.kernel_ver }}
+      if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
+      working-directory: /workdir/linux-${{ env.kernel_ver }}
+      run: |
+        git remote add google-bbr https://github.com/google/bbr.git
+        git fetch google-bbr
+        git checkout google-bbr/v3
 
     - name: Compile Kernel
       shell: bash
