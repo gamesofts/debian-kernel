@@ -105,8 +105,11 @@ jobs:
         scripts/config --disable DEBUG_INFO_NONE
         scripts/config --disable SYSTEM_TRUSTED_KEYS
         scripts/config --disable SYSTEM_REVOCATION_KEYS
+
         echo -e "$(nproc) thread compile"
-        sudo time make -j$(nproc) bindeb-pkg
+        make olddefconfig
+        make bindeb-pkg -j $(nproc)
+
         mv ../*.deb /workdir/upload
         echo "compile_status=success" >> $GITHUB_ENV
         echo "FILE_DATE=Kernel_Debian_${kernel_ver}_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
