@@ -23,7 +23,7 @@ if [ "${deb_total}" ] >"1"; then
 fi
 
 headurl=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep ${github_tag} | grep 'deb' | grep 'headers' | awk -F '"' '{print $4}')
-imgurl=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep ${github_tag} | grep 'deb' | grep 'image' | grep -v 'dev' | awk -F '"' '{print $4}')
+imgurl=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases' | grep ${github_tag} | grep 'deb' | grep 'image' | grep -v 'dev\|dbg' | awk -F '"' '{print $4}')
 
 wget "$headurl" -O "linux-headers-d10.deb"
 wget "$imgurl" -O "linux-image-d10.deb"
