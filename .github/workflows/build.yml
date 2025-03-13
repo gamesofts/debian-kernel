@@ -21,7 +21,7 @@ jobs:
       shell: bash
       id: versions
       run: |
-        github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases/latest' | grep 'Debian_Kernel' | grep '_bbrv3_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}' | awk -F '[_]' '{print $3}')
+        github_ver=$(curl -s 'https://api.github.com/repos/gamesofts/debian-kernel/releases/latest' | grep 'Debian_Kernel' | grep '_bbrplus_' | head -n 1 | awk -F '"' '{print $4}' | awk -F '[/]' '{print $8}' | awk -F '[_]' '{print $3}')
         kernel_ver=$(curl -s https://www.kernel.org/ | grep ' <a href="https://cdn.kernel.org/pub/linux/kernel/' | head -n 1 | awk -F '[>]' '{print $2}' | awk -F '[<]' '{print $1}')
         major_ver=$(cut -d. -f1-2 <<< "$kernel_ver")
         
@@ -82,14 +82,11 @@ jobs:
         tar -Jxvf kernel.tar.xz -C /workdir && cd /workdir/linux-$kernel_ver
         echo "code_status=success" >> $GITHUB_ENV
         
-    - name: Add Google BBRv3
+    - name: Super BBR
       if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
       working-directory: /workdir/linux-${{ env.kernel_ver }}
       run: |
-        git init
-        git remote add google-bbr https://github.com/google/bbr.git
-        git fetch google-bbr
-        git checkout -f google-bbr/v3
+        wget --no-check-certificate https://raw.githubusercontent.com/gamesofts/debian-kernel/main/tcp_bbr.c -O ./net/ipv4/tcp_bbr.c
 
     - name: Compile Kernel
       shell: bash
@@ -129,7 +126,7 @@ jobs:
     - name: Generate release tag
       if: ${{ env.UPLOAD_RELEASE == 'true' && env.compile_status == 'success' }}
       run: |
-        echo "release_tag=Debian_Kernel_${kernel_ver}_bbrv3_$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
+        echo "release_tag=Debian_Kernel_${kernel_ver}_bbrplus_$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
         touch release.txt
         echo "tag_status=success" >> $GITHUB_ENV
 
