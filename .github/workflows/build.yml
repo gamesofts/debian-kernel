@@ -43,22 +43,37 @@ jobs:
       if: ${{ env.versions_status == 'success' }}
       working-directory: /workdir
       run: |
-        deb_urls=(
-          "https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${kernel_ver}-cloud-amd64_${kernel_ver}-1_amd64.deb"
-          "https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${major_ver}-cloud-amd64_${kernel_ver}-1~exp1_amd64.deb"
-          "https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/linux-image-${major_ver}-cloud-amd64_${kernel_ver}-1_amd64.deb"
-        )
-        for url in "${deb_urls[@]}"; do
-          echo "Trying: $url"
-          if wget --no-check-certificate -q --spider "$url"; then
-            wget --no-check-certificate -O linux-image.deb "$url" && break
-          else
-            echo "Not found: $url"
-          fi
-        done
+        deb_url="https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/"
+        echo "Fetching deb files from $deb_url"
+        deb_files=$(curl -sL $deb_url | grep -oP 'href="\Klinux-image-[^_]+-cloud-amd64_[^_]+_amd64\.deb' || true)
+        if [ -z "$deb_files" ]; then
+            echo "::error::No matching deb files found on the page."
+            exit 1
+        fi
+        latest_version=""
+        latest_deb=""
+        while IFS= read -r deb_file; do
+            version=$(echo "$deb_file" | awk -F_ '{print $2}')
+            echo "Found deb file: $deb_file, version: $version"
+            if [ -z "$latest_version" ]; then
+                latest_version="$version"
+                latest_deb="$deb_file"
+            else
+                if dpkg --compare-versions "$version" gt "$latest_version"; then
+                    latest_version="$version"
+                    latest_deb="$deb_file"
+                fi
+            fi
+        done <<< "$deb_files"
+        if [ -z "$latest_deb" ]; then
+            echo "::error::Failed to determine the latest deb package."
+            exit 1
+        fi
+        echo "Latest deb package: $latest_deb, version: $latest_version"
+        wget --no-check-certificate -O linux-image.deb "${deb_url}${latest_deb}"
         if [ ! -f linux-image.deb ]; then
-          echo "::error::All deb package download attempts failed"
-          exit 1
+            echo "::error::Failed to download deb package."
+            exit 1
         fi
         ar x linux-image.deb data.tar.xz
         tar -xf data.tar.xz --wildcards '*/config-*' --strip-components=2
@@ -66,8 +81,8 @@ jobs:
         mkdir -p /workdir/lib/modules
         mv "$found_config" /workdir/lib/modules/.config
         if [ ! -f /workdir/lib/modules/.config ]; then
-          echo "::error::Config file extraction failed. Searched patterns: ${config_patterns[*]}"
-          exit 1
+            echo "::error::Config file extraction failed."
+            exit 1
         fi
         rm -rf data.tar.xz linux-image.deb
 
@@ -82,7 +97,7 @@ jobs:
         tar -Jxvf kernel.tar.xz -C /workdir && cd /workdir/linux-$kernel_ver
         echo "code_status=success" >> $GITHUB_ENV
         
-    - name: Super BBR
+    - name: Apply BBR Plus
       if: ${{ env.versions_status == 'success' && env.code_status == 'success' }}
       working-directory: /workdir/linux-${{ env.kernel_ver }}
       run: |
