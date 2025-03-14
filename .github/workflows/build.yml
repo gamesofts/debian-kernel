@@ -45,7 +45,7 @@ jobs:
       run: |
         deb_url="https://http.us.debian.org/debian/pool/main/l/linux-signed-amd64/"
         echo "Fetching deb files from $deb_url"
-        deb_files=$(curl -sL $deb_url | grep -oP 'href="\Klinux-image-[^_]+-cloud-amd64_[^_]+_amd64\.deb' || true)
+        deb_files=$(curl -sL $deb_url | grep -oP 'href="linux-image-[^_]+-cloud-amd64_[^_]+_amd64\.deb' || true)
         if [ -z "$deb_files" ]; then
             echo "::error::No matching deb files found on the page."
             exit 1
