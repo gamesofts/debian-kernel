@@ -130,11 +130,11 @@ struct bbr {
 #define CYCLE_LEN	8	/* number of phases in a pacing gain cycle */
 
 /* Window length of bw filter (in rounds): */
-static const int bbr_bw_rtts = CYCLE_LEN + 5;
+static const int bbr_bw_rtts = CYCLE_LEN + 7;
 /* Window length of min_rtt filter (in sec): */
 static const u32 bbr_min_rtt_win_sec = 20;
 /* Minimum time (in ms) spent at bbr_cwnd_min_target in BBR_PROBE_RTT mode: */
-static const u32 bbr_probe_rtt_mode_ms = 150;
+static const u32 bbr_probe_rtt_mode_ms = 200;
 /* Skip TSO below the following bandwidth (bits/sec): */
 static const int bbr_min_tso_rate = 1200000;
 
@@ -161,9 +161,9 @@ static const int bbr_cwnd_gain  = BBR_UNIT * 3;
 /* The pacing_gain values for the PROBE_BW gain cycle, to discover/share bw: */
 static const int bbr_pacing_gain[] = {
 	BBR_UNIT * 3 / 2,	/* probe for more available bw */
-	BBR_UNIT * 9 / 10,	/* drain queue and/or yield bw to other flows */
-	BBR_UNIT, BBR_UNIT, BBR_UNIT,	/* cruise at 1.0*bw to utilize pipe, */
-	BBR_UNIT, BBR_UNIT, BBR_UNIT	/* without creating excess queue... */
+	BBR_UNIT * 4 / 5,	/* drain queue and/or yield bw to other flows */
+	BBR_UNIT * 9 / 8, BBR_UNIT * 9 / 8, BBR_UNIT * 9 / 8,	/* cruise at 1.0*bw to utilize pipe, */
+	BBR_UNIT * 9 / 8, BBR_UNIT * 9 / 8, BBR_UNIT * 9 / 8	/* without creating excess queue... */
 };
 /* Randomize the starting gain cycling phase over N phases: */
 static const u32 bbr_cycle_rand = 7;
