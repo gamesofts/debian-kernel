@@ -238,7 +238,7 @@ else
   warn "No grub updater found; skipping."
 fi
 
-# --- enable BBR + FQ ---
+# enable BBR + FQ
 log "Enabling BBR + FQ..."
 cat > /etc/sysctl.d/99-bbr-fq.conf <<'EOF'
 net.core.default_qdisc=fq
@@ -249,6 +249,13 @@ tcp_bbr
 EOF
 modprobe tcp_bbr 2>/dev/null || true
 sysctl --system >/dev/null
+
+# clean up
+apt-get autoremove --purge -y
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+mkdir -p /var/lib/apt/lists/partial
+
 log "Now: cc=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo unknown), qdisc=$(sysctl -n net.core.default_qdisc 2>/dev/null || echo unknown)"
 
 warn "Current running kernel: $(uname -r)"
