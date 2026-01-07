@@ -16,17 +16,6 @@ die()  { echo -e "[x] $*" >&2; exit 1; }
 dpkg --compare-versions "${VERSION_ID:-0}" ge "12" || die "Only Debian >= 12 supported (VERSION_ID=${VERSION_ID:-})"
 CODENAME="${VERSION_CODENAME:-}"
 
-backup_dir="/root/apt-backups/$(date +%F-%H%M%S)"
-mkdir -p "$backup_dir"
-
-# move invalid *.bak.* files out of sources.list.d to stop "invalid filename extension" warnings
-shopt -s nullglob
-for f in /etc/apt/sources.list.d/*.bak.*; do
-  mv -f "$f" "${backup_dir}/"
-  log "Moved invalid ext file out of sources.list.d: $f"
-done
-shopt -u nullglob
-
 has_suite_in_sources() {
   local suite="$1"
   grep -RqsE "^[[:space:]]*deb[[:space:]].*[[:space:]]${suite}([[:space:]]|/)" \
