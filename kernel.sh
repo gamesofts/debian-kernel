@@ -279,7 +279,7 @@ purge_other_kernels_keep_one() {
 # ----------------- enable bbr + fq -----------------
 enable_bbr_fq() {
   log "Enabling BBR + FQ..."
-  cat > /etc/sysctl.d/99-bbr-fq.conf <<'EOF'
+  cat > /etc/sysctl.d/99-sysctl.conf <<'EOF'
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
