@@ -280,8 +280,17 @@ purge_other_kernels_keep_one() {
 enable_bbr_fq() {
   log "Enabling BBR + FQ..."
   cat > /etc/sysctl.d/99-sysctl.conf <<'EOF'
-net.core.default_qdisc=fq
-net.ipv4.tcp_congestion_control=bbr
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.core.somaxconn = 4096
+net.ipv4.tcp_max_syn_backlog = 8192
+net.core.netdev_max_backlog = 16384
+net.core.rmem_max = 67108864
+net.core.wmem_max = 67108864
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_notsent_lowat = 131072
 EOF
   cat > /etc/modules-load.d/bbr.conf <<'EOF'
 tcp_bbr
