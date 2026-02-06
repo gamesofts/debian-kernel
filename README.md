@@ -1,4 +1,3 @@
-## 自动编译最新的 debian 内核，默认开启 bbr 和 fq
+## 安装最新的 debian cloud 版官方内核，默认开启 bbr 和 fq
 
-#### 安装内核：
-bash <(curl -L https://raw.githubusercontent.com/gamesofts/debian-kernel/main/install.sh)
+bash <(curl -L https://raw.githubusercontent.com/gamesofts/debian-kernel/main/kernel.sh)
