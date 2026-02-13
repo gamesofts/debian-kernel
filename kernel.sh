@@ -84,7 +84,7 @@ EOF
 log "Pinned: only kernel-related packages allowed from experimental/sid."
 
 log "apt-get update..."
-apt-get update -y
+apt-get -o Acquire::PDiffs=false update -y
 
 # ----------------- candidate selection -----------------
 extract_suite_from_madison_line() {
@@ -94,27 +94,42 @@ extract_suite_from_madison_line() {
     | awk -F'/' '{print $1}'
 }
 
-# Get the first version of PKG in SUITE
-get_ver_in_suite() {
-  local pkg="$1" suite="$2"
-  local want1="$suite"
-  local want2=""
+normalize_suite() {
+  local suite="$1"
+  [[ "$suite" == "unstable" ]] && suite="sid"
+  echo "$suite"
+}
 
-  # sid may appear as "sid" or "unstable" in madison output
-  if [[ "$suite" == "sid" ]]; then
-    want2="unstable"
+is_allowed_suite() {
+  local suite="$1"
+  [[ "$suite" == "experimental" || "$suite" == "sid" || "$suite" == "${CODENAME}-backports" || "$suite" == "${CODENAME}-security" || "$suite" == "${CODENAME}-updates" || "$suite" == "${CODENAME}" ]]
+}
+
+suite_priority() {
+  local suite="$1"
+  case "$suite" in
+    experimental) echo 0 ;;
+    sid) echo 1 ;;
+    "${CODENAME}-backports") echo 2 ;;
+    "${CODENAME}-security") echo 3 ;;
+    "${CODENAME}-updates") echo 4 ;;
+    "${CODENAME}") echo 5 ;;
+    *) echo 99 ;;
+  esac
+}
+
+candidate_is_better() {
+  local new_ver="$1" new_pri="$2" cur_ver="$3" cur_pri="$4"
+  if [[ -z "$cur_ver" ]]; then
+    return 0
   fi
-
-  apt-cache madison "$pkg" 2>/dev/null \
-    | while IFS= read -r line; do
-        [[ -n "$line" ]] || continue
-        s="$(printf "%s\n" "$line" | extract_suite_from_madison_line)"
-        if [[ "$s" != "$want1" && ( -n "$want2" && "$s" != "$want2" ) ]]; then
-          continue
-        fi
-        v="$(printf "%s\n" "$line" | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}')"
-        [[ -n "$v" ]] && { echo "$v"; break; }
-      done
+  if dpkg --compare-versions "$new_ver" gt "$cur_ver"; then
+    return 0
+  fi
+  if dpkg --compare-versions "$new_ver" eq "$cur_ver" && ((new_pri < cur_pri)); then
+    return 0
+  fi
+  return 1
 }
 
 candidate_installable() {
@@ -124,8 +139,6 @@ candidate_installable() {
 }
 
 select_newest_installable_cloud_kernel() {
-  local suites=("experimental" "sid" "${CODENAME}-backports" "${CODENAME}-security" "${CODENAME}-updates" "${CODENAME}")
-
   mapfile -t pkgnames < <(
     apt-cache pkgnames 2>/dev/null \
       | grep -E '^linux-image-[0-9].*-cloud-amd64$' \
@@ -134,22 +147,52 @@ select_newest_installable_cloud_kernel() {
       | sort -u
   )
 
-  local best_suite="" best_pkg="" best_ver=""
+  local candidates=()
   for pkg in "${pkgnames[@]}"; do
-    for suite in "${suites[@]}"; do
-      ver="$(get_ver_in_suite "$pkg" "$suite" || true)"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      raw_suite="$(printf "%s\n" "$line" | extract_suite_from_madison_line)"
+      suite="$(normalize_suite "$raw_suite")"
+      is_allowed_suite "$suite" || continue
+      ver="$(printf "%s\n" "$line" | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}')"
       [[ -n "$ver" ]] || continue
-      if ! candidate_installable "$suite" "$pkg" "$ver"; then
-        continue
-      fi
-      if [[ -z "$best_ver" ]] || dpkg --compare-versions "$ver" gt "$best_ver"; then
-        best_ver="$ver"; best_pkg="$pkg"; best_suite="$suite"
-      fi
-    done
+      pri="$(suite_priority "$suite")"
+      candidates+=("$suite|$pkg|$ver|$pri")
+    done < <(apt-cache madison "$pkg" 2>/dev/null)
   done
 
-  [[ -n "$best_pkg" ]] || return 1
-  echo "$best_suite|$best_pkg|$best_ver"
+  ((${#candidates[@]} > 0)) || return 1
+  mapfile -t candidates < <(printf "%s\n" "${candidates[@]}" | sort -u)
+
+  while ((${#candidates[@]} > 0)); do
+    best_idx=-1
+    best_suite=""
+    best_pkg=""
+    best_ver=""
+    best_pri=999
+
+    for i in "${!candidates[@]}"; do
+      IFS='|' read -r suite pkg ver pri <<<"${candidates[$i]}"
+      if candidate_is_better "$ver" "$pri" "$best_ver" "$best_pri"; then
+        best_idx="$i"
+        best_suite="$suite"
+        best_pkg="$pkg"
+        best_ver="$ver"
+        best_pri="$pri"
+      fi
+    done
+
+    [[ "$best_idx" -ge 0 ]] || break
+    if candidate_installable "$best_suite" "$best_pkg" "$best_ver"; then
+      echo "$best_suite|$best_pkg|$best_ver"
+      return 0
+    fi
+
+    unset 'candidates[best_idx]'
+    candidates=("${candidates[@]}")
+  done
+
+  return 1
 }
 
 # ----------------- early skip if already latest -----------------
@@ -165,6 +208,20 @@ is_pkg_installed_exact() {
 kernel_files_exist() {
   local kver="$1"
   [[ -f "/boot/vmlinuz-$kver" && -f "/boot/initrd.img-$kver" ]]
+}
+
+confirm_upgrade() {
+  local suite="$1" pkg="$2" ver="$3"
+  if [[ -t 0 && -t 1 ]]; then
+    warn "Found newer installable cloud kernel: $pkg ($ver) from $suite"
+    read -r -p "Upgrade now? [y/N] " ans
+    if [[ ! "$ans" =~ ^[Yy]$ ]]; then
+      log "Upgrade canceled by user."
+      exit 0
+    fi
+  else
+    warn "No interactive TTY detected; defaulting to upgrade: $pkg ($ver) from $suite"
+  fi
 }
 
 ensure_initrd_exists() {
@@ -307,7 +364,6 @@ post_cleanup_disk() {
   apt-get clean
   rm -rf /var/lib/apt/lists/*
   mkdir -p /var/lib/apt/lists/partial
-  log "Cleaned APT cache and lists to save disk."
 }
 
 # ----------------- main -----------------
@@ -322,6 +378,7 @@ keep_ver="${pkg#linux-image-}"
 if is_pkg_installed_exact "$pkg" "$ver" && kernel_files_exist "$keep_ver"; then
   log "Already latest installed; skipping install."
 else
+  confirm_upgrade "$suite" "$pkg" "$ver"
   install_selected_kernel "$suite" "$pkg" "$ver"
 fi
 
