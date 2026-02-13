@@ -271,7 +271,6 @@ ensure_boot_space_for_upgrade() {
 confirm_upgrade() {
   local suite="$1" pkg="$2" ver="$3"
   if [[ -t 0 && -t 1 ]]; then
-    warn "Found newer installable cloud kernel: $pkg ($ver) from $suite"
     read -r -p "Upgrade now? [y/N] " ans
     if [[ ! "$ans" =~ ^[Yy]$ ]]; then
       log "Upgrade canceled by user."
@@ -429,7 +428,10 @@ sel="$(select_newest_installable_cloud_kernel || true)"
 [[ -n "${sel:-}" ]] || die "No installable cloud kernel found in experimental/sid/backports/main/security."
 
 IFS='|' read -r suite pkg ver <<<"$sel"
-log "Selected newest installable cloud kernel: $pkg ($ver) from $suite"
+current_running="$(uname -r)"
+current_pkg_ver="$(dpkg-query -W -f='${Version}\n' "$pkg" 2>/dev/null || true)"
+[[ -n "$current_pkg_ver" ]] || current_pkg_ver="not installed"
+log "Upgrade candidate: $pkg ($ver) from $suite | running kernel: $current_running | installed $pkg: $current_pkg_ver"
 
 keep_ver="${pkg#linux-image-}"
 
