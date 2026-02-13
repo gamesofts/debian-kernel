@@ -13,6 +13,35 @@ log()  { echo -e "[+] $*" >&2; }
 warn() { echo -e "[!] $*" >&2; }
 die()  { echo -e "[x] $*" >&2; exit 1; }
 
+PIN_FILE="/etc/apt/preferences.d/99-kernel-only-exp-sid"
+PIN_BAK=""
+PIN_EXISTED=0
+created_source_files=()
+
+cleanup_apt_temp_state() {
+  local f
+
+  for f in "${created_source_files[@]:-}"; do
+    [[ -n "${f:-}" && -f "$f" ]] || continue
+    rm -f "$f" || true
+    log "Removed temporary source file: $f"
+  done
+
+  if [[ "$PIN_EXISTED" -eq 1 ]]; then
+    if [[ -n "$PIN_BAK" && -f "$PIN_BAK" ]]; then
+      cp -f "$PIN_BAK" "$PIN_FILE" || true
+      rm -f "$PIN_BAK" || true
+      log "Restored original pin file: $PIN_FILE"
+    fi
+  else
+    rm -f "$PIN_FILE" || true
+    [[ -n "$PIN_BAK" && -f "$PIN_BAK" ]] && rm -f "$PIN_BAK" || true
+    log "Removed temporary pin file: $PIN_FILE"
+  fi
+}
+
+trap cleanup_apt_temp_state EXIT
+
 # ----------------- prechecks -----------------
 [[ -n "${BASH_VERSION:-}" ]] || die "Run with bash, e.g. sudo bash $0"
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die "Run as root"
@@ -53,6 +82,7 @@ ensure_suite_source_exists() {
     return 0
   fi
   printf "%s\n" "$line" > "$file"
+  created_source_files+=("$file")
   log "Wrote $file"
 }
 
@@ -64,7 +94,12 @@ ensure_suite_source_exists "sid" "/etc/apt/sources.list.d/sid.list" \
 
 # Pin: only kernel-related packages are allowed from experimental/sid
 install -d /etc/apt/preferences.d
-cat > /etc/apt/preferences.d/99-kernel-only-exp-sid <<'EOF'
+if [[ -f "$PIN_FILE" ]]; then
+  PIN_EXISTED=1
+  PIN_BAK="$(mktemp /tmp/99-kernel-only-exp-sid.XXXXXX)"
+  cp -f "$PIN_FILE" "$PIN_BAK"
+fi
+cat > "$PIN_FILE" <<'EOF'
 Package: *
 Pin: release a=experimental
 Pin-Priority: 1
@@ -84,7 +119,7 @@ EOF
 log "Pinned: only kernel-related packages allowed from experimental/sid."
 
 log "apt-get update..."
-apt-get -o Acquire::PDiffs=false update -y
+apt-get -o Acquire::PDiffs=false update
 
 # ----------------- candidate selection -----------------
 extract_suite_from_madison_line() {
@@ -133,12 +168,15 @@ candidate_is_better() {
 }
 
 candidate_installable() {
-  local suite="$1" pkg="$2" ver="$3"
+  local pkg="$2" ver="$3"
   # Dry-run must be solvable; rejects broken experimental states
-  apt-get -s -t "$suite" install "$pkg=$ver" >/dev/null 2>&1
+  apt-get -s install --no-install-recommends "$pkg=$ver" initramfs-tools >/dev/null 2>&1
 }
 
 select_newest_installable_cloud_kernel() {
+  local pkg line raw_suite suite ver pri
+  local i
+  local best_idx best_suite best_pkg best_ver best_pri
   mapfile -t pkgnames < <(
     apt-cache pkgnames 2>/dev/null \
       | grep -E '^linux-image-[0-9].*-cloud-amd64$' \
@@ -210,6 +248,26 @@ kernel_files_exist() {
   [[ -f "/boot/vmlinuz-$kver" && -f "/boot/initrd.img-$kver" ]]
 }
 
+ensure_boot_space_for_upgrade() {
+  local required_mb=350
+  local required_kb=$((required_mb * 1024))
+  local boot_avail_kb root_avail_kb
+
+  boot_avail_kb="$(df -Pk /boot 2>/dev/null | awk 'NR==2{print $4}' || true)"
+  if [[ -n "${boot_avail_kb:-}" && "$boot_avail_kb" =~ ^[0-9]+$ ]]; then
+    ((boot_avail_kb >= required_kb)) || die "/boot free space too low: ${boot_avail_kb}KB (< ${required_kb}KB)."
+    return 0
+  fi
+
+  root_avail_kb="$(df -Pk / 2>/dev/null | awk 'NR==2{print $4}' || true)"
+  if [[ -n "${root_avail_kb:-}" && "$root_avail_kb" =~ ^[0-9]+$ ]]; then
+    ((root_avail_kb >= required_kb)) || die "/ free space too low: ${root_avail_kb}KB (< ${required_kb}KB)."
+    return 0
+  fi
+
+  die "Unable to detect available disk space for /boot or /."
+}
+
 confirm_upgrade() {
   local suite="$1" pkg="$2" ver="$3"
   if [[ -t 0 && -t 1 ]]; then
@@ -241,7 +299,7 @@ install_selected_kernel() {
 
   log "Installing: $pkg=$ver from suite: $suite"
   # Keep it lean: do NOT install headers by default (saves disk).
-  apt-get install -y -t "$suite" "$pkg=$ver" initramfs-tools
+  apt-get install -y --no-install-recommends "$pkg=$ver" initramfs-tools
 }
 
 # ----------------- purge old kernels, keep only one -----------------
@@ -378,6 +436,7 @@ keep_ver="${pkg#linux-image-}"
 if is_pkg_installed_exact "$pkg" "$ver" && kernel_files_exist "$keep_ver"; then
   log "Already latest installed; skipping install."
 else
+  ensure_boot_space_for_upgrade
   confirm_upgrade "$suite" "$pkg" "$ver"
   install_selected_kernel "$suite" "$pkg" "$ver"
 fi
