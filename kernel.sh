@@ -168,9 +168,9 @@ candidate_is_better() {
 }
 
 candidate_installable() {
-  local pkg="$2" ver="$3"
+  local suite="$1" pkg="$2" ver="$3"
   # Dry-run must be solvable; rejects broken experimental states
-  apt-get -s install --no-install-recommends "$pkg=$ver" initramfs-tools >/dev/null 2>&1
+  apt-get -s -t "$suite" install --no-install-recommends "$pkg=$ver" initramfs-tools >/dev/null 2>&1
 }
 
 select_newest_installable_cloud_kernel() {
@@ -299,7 +299,7 @@ install_selected_kernel() {
 
   log "Installing: $pkg=$ver from suite: $suite"
   # Keep it lean: do NOT install headers by default (saves disk).
-  apt-get install -y --no-install-recommends "$pkg=$ver" initramfs-tools
+  apt-get install -y -t "$suite" --no-install-recommends "$pkg=$ver" initramfs-tools
 }
 
 # ----------------- purge old kernels, keep only one -----------------
