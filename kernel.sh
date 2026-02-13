@@ -431,7 +431,8 @@ IFS='|' read -r suite pkg ver <<<"$sel"
 current_running="$(uname -r)"
 current_pkg_ver="$(dpkg-query -W -f='${Version}\n' "$pkg" 2>/dev/null || true)"
 [[ -n "$current_pkg_ver" ]] || current_pkg_ver="not installed"
-log "Upgrade candidate: $pkg ($ver) from $suite | running kernel: $current_running | installed $pkg: $current_pkg_ver"
+log "Upgrade candidate: $pkg ($ver) from $suite"
+log "Current running kernel: $current_running"
 
 keep_ver="${pkg#linux-image-}"
 
